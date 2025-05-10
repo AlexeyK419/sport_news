@@ -20,8 +20,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -48,29 +53,21 @@ public class VkNewsService {
 
     private String downloadAndSaveMedia(String url, String fileType) throws IOException {
         try {
-            // Create upload directory if it doesn't exist
             Path uploadPath = Paths.get(uploadDir);
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
 
-            // Generate unique filename
             String fileExtension = getFileExtension(fileType);
             String newFilename = UUID.randomUUID().toString() + fileExtension;
-
-            // Clean and encode URL
-            String cleanUrl = cleanAndEncodeUrl(url);
-            logger.info("Downloading media from URL: {}", cleanUrl);
-
-            // Download and save file
             Path targetLocation = uploadPath.resolve(newFilename);
-            try (var in = new URL(cleanUrl).openStream()) {
+
+            try (var in = new URL(url).openStream()) {
                 Files.copy(in, targetLocation, StandardCopyOption.REPLACE_EXISTING);
             }
             
             return newFilename;
         } catch (Exception e) {
-            logger.error("Error downloading media file from URL: " + url, e);
             throw new IOException("Failed to download media file: " + e.getMessage(), e);
         }
     }
@@ -130,107 +127,181 @@ public class VkNewsService {
             logger.info("Attempting to fetch news from VK group: {}", groupId);
             String response = vk.wall().get(actor)
                     .ownerId(-Integer.parseInt(groupId))
-                    .count(10)
+                    .count(100)  // Увеличиваем количество новостей
                     .execute()
                     .toString();
 
-            logger.info("Raw VK API response: {}", response);
+            JSONObject jsonResponse = new JSONObject(response);
             
-            // Parse the response string into a proper JSON object
-            String cleanResponse = response.replace("(", "{").replace(")", "}")
-                    .replace("'", "\"")
-                    .replace("::", ":")
-                    .replace("O", "0");
-            
-            JSONObject jsonResponse = new JSONObject(cleanResponse);
-            
-            // Check if there's an error in the response
             if (jsonResponse.has("error")) {
                 JSONObject error = jsonResponse.getJSONObject("error");
-                String errorMsg = String.format("VK API Error: %s (code: %d)", 
+                throw new RuntimeException(String.format("VK API Error: %s (code: %d)", 
                     error.getString("error_msg"), 
-                    error.getInt("error_code"));
-                logger.error(errorMsg);
-                throw new RuntimeException(errorMsg);
+                    error.getInt("error_code")));
             }
 
             JSONArray items = jsonResponse.getJSONArray("items");
             List<News> newsList = new ArrayList<>();
+            Set<String> processedIds = new HashSet<>();
 
             for (int i = 0; i < items.length(); i++) {
-                JSONObject post = items.getJSONObject(i);
-                News news = new News();
-                
-                // Get text content, handling both text and description fields
-                String text = "";
-                if (post.has("text") && !post.getString("text").isEmpty()) {
-                    text = post.getString("text");
-                } else if (post.has("description")) {
-                    text = post.getString("description");
-                }
-                
-                // Set title as first 100 characters of text
-                news.setTitle(text.substring(0, Math.min(100, text.length())));
-                news.setContent(text);
-                news.setSourceType(News.NewsSource.VK);
-                news.setSourceId(String.valueOf(post.getInt("id")));
+                try {
+                    JSONObject post = items.getJSONObject(i);
+                    String postId = String.valueOf(post.getInt("id"));
+                    
+                    if (processedIds.contains(postId)) {
+                        continue;
+                    }
+                    processedIds.add(postId);
+                    
+                    News news = new News();
+                    
+                    String text = post.has("text") && !post.getString("text").isEmpty() 
+                        ? post.getString("text") 
+                        : post.has("description") ? post.getString("description") : "";
+                    
+                    if (text.isEmpty()) {
+                        continue;
+                    }
+                    
+                    news.setTitle(text.substring(0, Math.min(100, text.length())));
+                    news.setContent(text);
+                    news.setSourceType(News.NewsSource.VK);
+                    news.setSourceId(postId);
+                    
+                    // Set the creation date from VK post
+                    if (post.has("date")) {
+                        long postDate = post.getLong("date");
+                        LocalDateTime postDateTime = LocalDateTime.ofInstant(
+                            Instant.ofEpochSecond(postDate),
+                            ZoneId.of("Europe/Moscow")
+                        );
+                        news.setCreatedAt(postDateTime);
+                        logger.info("Post {} date set to: {}", postId, postDateTime);
+                    } else {
+                        news.setCreatedAt(LocalDateTime.now());
+                    }
 
-                // Handle attachments (photos, videos, etc.)
-                if (post.has("attachments")) {
-                    JSONArray attachments = post.getJSONArray("attachments");
-                    for (int j = 0; j < attachments.length(); j++) {
-                        JSONObject attachment = attachments.getJSONObject(j);
-                        String type = attachment.getString("type");
+                    // Handle all attachments
+                    if (post.has("attachments")) {
+                        JSONArray attachments = post.getJSONArray("attachments");
+                        StringBuilder mediaFiles = new StringBuilder();
+                        StringBuilder mediaTypes = new StringBuilder();
+                        StringBuilder mediaPaths = new StringBuilder();
+                        
+                        for (int j = 0; j < attachments.length(); j++) {
+                            JSONObject attachment = attachments.getJSONObject(j);
+                            String type = attachment.getString("type");
+                            String mediaUrl = "";
+                            String mediaType = "";
 
-                        if (type.equals("photo")) {
-                            JSONObject photo = attachment.getJSONObject("photo");
-                            // Get the largest available photo size
-                            JSONArray sizes = photo.getJSONArray("sizes");
-                            String photoUrl = "";
-                            int maxSize = 0;
-                            for (int k = 0; k < sizes.length(); k++) {
-                                JSONObject size = sizes.getJSONObject(k);
-                                int width = size.getInt("width");
-                                if (width > maxSize) {
-                                    maxSize = width;
-                                    photoUrl = size.getString("url");
-                                }
+                            switch (type) {
+                                case "photo":
+                                    JSONObject photo = attachment.getJSONObject("photo");
+                                    JSONArray sizes = photo.getJSONArray("sizes");
+                                    int maxSize = 0;
+                                    
+                                    for (int k = 0; k < sizes.length(); k++) {
+                                        JSONObject size = sizes.getJSONObject(k);
+                                        int width = size.getInt("width");
+                                        if (width > maxSize) {
+                                            maxSize = width;
+                                            mediaUrl = size.getString("url");
+                                        }
+                                    }
+                                    mediaType = "image/jpeg";
+                                    break;
+
+                                case "video":
+                                    JSONObject video = attachment.getJSONObject("video");
+                                    if (video.has("player")) {
+                                        mediaUrl = video.getString("player");
+                                        mediaType = "video/mp4";
+                                    } else if (video.has("files")) {
+                                        JSONObject files = video.getJSONObject("files");
+                                        if (files.has("mp4_720")) {
+                                            mediaUrl = files.getString("mp4_720");
+                                        } else if (files.has("mp4_480")) {
+                                            mediaUrl = files.getString("mp4_480");
+                                        } else if (files.has("mp4_360")) {
+                                            mediaUrl = files.getString("mp4_360");
+                                        } else if (files.has("mp4_240")) {
+                                            mediaUrl = files.getString("mp4_240");
+                                        }
+                                        mediaType = "video/mp4";
+                                    }
+                                    break;
+
+                                case "doc":
+                                    JSONObject doc = attachment.getJSONObject("doc");
+                                    mediaUrl = doc.getString("url");
+                                    mediaType = doc.getString("type");
+                                    break;
+
+                                case "audio":
+                                    JSONObject audio = attachment.getJSONObject("audio");
+                                    mediaUrl = audio.getString("url");
+                                    mediaType = "audio/mpeg";
+                                    break;
+
+                                case "link":
+                                    JSONObject link = attachment.getJSONObject("link");
+                                    if (link.has("photo")) {
+                                        JSONObject linkPhoto = link.getJSONObject("photo");
+                                        JSONArray linkSizes = linkPhoto.getJSONArray("sizes");
+                                        int maxLinkSize = 0;
+                                        
+                                        for (int k = 0; k < linkSizes.length(); k++) {
+                                            JSONObject size = linkSizes.getJSONObject(k);
+                                            int width = size.getInt("width");
+                                            if (width > maxLinkSize) {
+                                                maxLinkSize = width;
+                                                mediaUrl = size.getString("url");
+                                            }
+                                        }
+                                        mediaType = "image/jpeg";
+                                    }
+                                    break;
                             }
-                            if (!photoUrl.isEmpty()) {
+
+                            if (!mediaUrl.isEmpty()) {
                                 try {
-                                    String filename = downloadAndSaveMedia(photoUrl, "image/jpeg");
-                                    news.setMediaFileName(filename);
-                                    news.setMediaFileType("image/jpeg");
-                                    news.setMediaFilePath("/files/" + filename);
+                                    String filename = downloadAndSaveMedia(mediaUrl, mediaType);
+                                    if (mediaFiles.length() > 0) {
+                                        mediaFiles.append(",");
+                                        mediaTypes.append(",");
+                                        mediaPaths.append(",");
+                                    }
+                                    mediaFiles.append(filename);
+                                    mediaTypes.append(mediaType);
+                                    mediaPaths.append("/files/" + filename);
+                                    logger.info("Successfully downloaded media for post {}: {}", postId, filename);
                                 } catch (IOException e) {
-                                    logger.error("Failed to download photo: " + photoUrl, e);
-                                }
-                            }
-                        } else if (type.equals("video")) {
-                            JSONObject video = attachment.getJSONObject("video");
-                            if (video.has("player")) {
-                                String videoUrl = video.getString("player");
-                                try {
-                                    String filename = downloadAndSaveMedia(videoUrl, "video/mp4");
-                                    news.setMediaFileName(filename);
-                                    news.setMediaFileType("video/mp4");
-                                    news.setMediaFilePath("/files/" + filename);
-                                } catch (IOException e) {
-                                    logger.error("Failed to download video: " + videoUrl, e);
+                                    logger.error("Failed to download media for post {}: {}", postId, e.getMessage());
                                 }
                             }
                         }
-                    }
-                }
 
-                newsList.add(news);
+                        if (mediaFiles.length() > 0) {
+                            news.setMediaFileName(mediaFiles.toString());
+                            news.setMediaFileType(mediaTypes.toString());
+                            news.setMediaFilePath(mediaPaths.toString());
+                        }
+                    }
+
+                    newsList.add(news);
+                    logger.info("Successfully processed post {} with {} attachments", postId, 
+                        post.has("attachments") ? post.getJSONArray("attachments").length() : 0);
+                } catch (Exception e) {
+                    logger.error("Error processing post: {}", e.getMessage());
+                }
             }
 
             logger.info("Successfully fetched {} news items from VK", newsList.size());
             return newsList;
         } catch (Exception e) {
-            logger.error("Error fetching news from VK: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to fetch news from VK: " + e.getMessage(), e);
+            logger.error("Error fetching news from VK: {}", e.getMessage());
+            throw new RuntimeException("Failed to fetch news from VK: " + e.getMessage());
         }
     }
 } 
