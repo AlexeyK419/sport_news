@@ -28,13 +28,13 @@ public class News {
     @Column(name = "source_id")
     private String sourceId;
 
-    @Column(name = "media_file_name")
+    @Column(name = "media_file_name", columnDefinition = "TEXT")
     private String mediaFileName;
 
-    @Column(name = "media_file_type")
+    @Column(name = "media_file_type", columnDefinition = "TEXT")
     private String mediaFileType;
 
-    @Column(name = "media_file_path")
+    @Column(name = "media_file_path", columnDefinition = "TEXT")
     private String mediaFilePath;
 
     @PrePersist
@@ -45,5 +45,91 @@ public class News {
     public enum NewsSource {
         VK,
         MANUAL
+    }
+
+    // Getters and setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public NewsSource getSourceType() {
+        return sourceType;
+    }
+
+    public void setSourceType(NewsSource sourceType) {
+        this.sourceType = sourceType;
+    }
+
+    public String getSourceId() {
+        return sourceId;
+    }
+
+    public void setSourceId(String sourceId) {
+        this.sourceId = sourceId;
+    }
+
+    public String getMediaFileName() {
+        return mediaFileName;
+    }
+
+    public void setMediaFileName(String mediaFileName) {
+        this.mediaFileName = mediaFileName;
+    }
+
+    public String getMediaFileType() {
+        return mediaFileType;
+    }
+
+    public void setMediaFileType(String mediaFileType) {
+        this.mediaFileType = mediaFileType;
+    }
+
+    public String getMediaFilePath() {
+        return mediaFilePath;
+    }
+
+    public void setMediaFilePath(String mediaFilePath) {
+        this.mediaFilePath = mediaFilePath;
+    }
+
+    // Helper methods for handling multiple media files
+    public String[] getMediaFileNames() {
+        return mediaFileName != null ? mediaFileName.split(",") : new String[0];
+    }
+
+    public String[] getMediaFileTypes() {
+        return mediaFileType != null ? mediaFileType.split(",") : new String[0];
+    }
+
+    public String[] getMediaFilePaths() {
+        return mediaFilePath != null ? mediaFilePath.split(",") : new String[0];
     }
 } 

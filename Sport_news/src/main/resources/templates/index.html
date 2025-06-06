@@ -1,142 +1,574 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.springframework.org/security/tags">
 <head>
     <meta charset="UTF-8">
     <title>Спортивная организация</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --background-color: #f8f9fa;
+            --text-color: #2c3e50;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        .navbar {
+            background-color: var(--primary-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .navbar-brand {
+            color: white !important;
+            font-weight: bold;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .navbar-brand img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .navbar-nav {
+            margin-left: 2rem;
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8) !important;
+            transition: color 0.3s;
+            padding: 0.5rem 1rem;
+            font-size: 1.1rem;
+        }
+
+        .nav-link:hover {
+            color: white !important;
+        }
+
         .news-card {
             margin-bottom: 20px;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
         }
-        .contact-section {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin-top: 30px;
+
+        .news-card:hover {
+            transform: translateY(-5px);
         }
+
         .action-buttons {
             position: absolute;
             top: 10px;
             right: 10px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
         }
+
+        .news-card:hover .action-buttons,
+        .card:hover .action-buttons {
+            opacity: 1;
+        }
+
         .card {
             position: relative;
+        }
+
+        .media-container {
+            max-height: 400px;
+            overflow: hidden;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+        .media-container img {
+            max-height: 400px;
+            width: 100%;
+            object-fit: contain;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .media-container img:hover {
+            transform: scale(1.02);
+        }
+
+        .media-container video {
+            max-height: 400px;
+            width: 100%;
+            object-fit: contain;
+        }
+
+        .media-container audio {
+            width: 100%;
+        }
+
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .media-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f8f9fa;
+            min-height: 200px;
+        }
+
+        .media-item img {
+            width: 100%;
+            height: auto;
+            max-height: 400px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .media-item video {
+            width: 100%;
+            height: auto;
+            max-height: 400px;
+            object-fit: contain;
+        }
+
+        .admin-controls {
+            position: fixed;
+            bottom: 80px;
+            left: 20px;
+            z-index: 1000;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .admin-controls.visible {
+            display: block;
+        }
+
+        .admin-panel {
+            max-width: 300px;
+        }
+
+        .admin-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .admin-button {
+            padding: 8px 16px;
+            background-color: var(--secondary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .admin-button:hover {
+            background-color: #2980b9;
+        }
+
+        .settings-toggle {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1001;
+            background-color: var(--primary-color);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border: none;
+        }
+
+        .settings-toggle:hover {
+            background-color: #34495e;
+        }
+
+        .settings-toggle i {
+            font-size: 24px;
+        }
+
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+        }
+
+        .modal-header {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .btn-close {
+            filter: brightness(0) invert(1);
+        }
+
+        .contact-section {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 30px;
+        }
+
+        .section-title {
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-bottom: 20px;
+            position: relative;
+            padding-bottom: 10px;
+            padding-left: 20px;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 20px;
+            width: 50px;
+            height: 3px;
+            background-color: var(--secondary-color);
+        }
+
+        .btn-primary {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9;
+            border-color: #2980b9;
+        }
+
+        .btn-danger {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+            border-color: #c0392b;
+        }
+
+        .modal-image {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+
+        .image-modal .modal-dialog {
+            max-width: 90vw;
+            margin: 1.75rem auto;
+        }
+
+        .image-modal .modal-content {
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+
+        .image-modal .modal-body {
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .image-modal .btn-close {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            z-index: 1050;
+            filter: brightness(0) invert(1);
+        }
+
+        .vk-news-section {
+            max-width: 820px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .vk-news-section .card {
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .vk-news-section .section-title {
+            padding-left: 20px;
+        }
+
+        .vk-news-section .section-title::after {
+            left: 20px;
         }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1 class="text-center mb-4">Спортивная организация</h1>
-        
-        <!-- News Section -->
-        <div class="row">
-            <div class="col-md-8">
-                <h2>Новости</h2>
-                <button class="btn btn-primary mb-3" onclick="refreshNews()">Обновить новости из ВК</button>
-                
-                <div id="newsList">
-                    <div th:each="news : ${news}" class="card news-card">
-                        <div class="action-buttons">
-                            <button class="btn btn-sm btn-primary" th:onclick="'editNews(' + ${news.id} + ')'">✏️</button>
-                            <button class="btn btn-sm btn-danger" th:onclick="'deleteNews(' + ${news.id} + ')'">🗑️</button>
-                        </div>
-                        <div class="card-body">
-                            <h5 class="card-title" th:text="${news.title}"></h5>
-                            <p class="card-text" th:text="${news.content}"></p>
-                            <div th:if="${news.mediaFilePath}" class="mt-2">
-                                <img th:if="${news.mediaFileType.startsWith('image/')}" 
-                                     th:src="${news.mediaFilePath}" 
-                                     class="img-fluid rounded" 
-                                     style="max-height: 300px;">
-                                <video th:if="${news.mediaFileType.startsWith('video/')}" 
-                                       th:src="${news.mediaFilePath}" 
-                                       class="img-fluid rounded" 
-                                       controls 
-                                       style="max-height: 300px;"></video>
-                                <a th:if="${!news.mediaFileType.startsWith('image/') && !news.mediaFileType.startsWith('video/')}" 
-                                   th:href="${news.mediaFilePath}" 
-                                   class="btn btn-secondary" 
-                                   target="_blank">Скачать файл</a>
-                            </div>
-                            <small class="text-muted" th:text="${#temporals.format(news.createdAt, 'dd.MM.yyyy HH:mm')}"></small>
-                        </div>
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <img src="/images/Лого.png" alt="Логотип">
+                Совершая невозможное
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#about-section">О нас</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#news-section">Новости</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#contacts-section">Контакты</a>
+                    </li>
+                </ul>
+                <div class="ms-auto">
+                    <div sec:authorize="!isAuthenticated()">
+                        <a href="/login" class="btn btn-outline-light me-2">Войти</a>
+                        <a href="/register" class="btn btn-light">Регистрация</a>
+                    </div>
+                    <div sec:authorize="isAuthenticated()">
+                        <form th:action="@{/logout}" method="post" class="d-inline">
+                            <button type="submit" class="btn btn-outline-light">Выйти</button>
+                        </form>
                     </div>
                 </div>
             </div>
-            
-            <!-- Add News Form -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h3>Добавить новость</h3>
-                        <form id="newsForm" enctype="multipart/form-data">
-                            <div class="mb-3">
-                                <label for="newsTitle" class="form-label">Заголовок</label>
-                                <input type="text" class="form-control" id="newsTitle" required>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- About Us Section -->
+        <div id="about-section" class="about-section mb-5">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="section-title mb-0">О нас</h2>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <div id="aboutContent" th:utext="${about?.content ?: 'Информация о вашей организации появится здесь.'}" style="white-space: pre-line;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VK News Widget Section -->
+        <div class="row">
+            <div class="col-12">
+                <h2 class="section-title">Новости нашей группы Вконтакте</h2>
+            </div>
+        </div>
+
+        <div class="vk-news-section mb-5">
+            <div class="card">
+                <div class="card-body">
+                    <div id="vk_groups"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- News Section -->
+        <div id="news-section" class="row">
+            <div class="col-12">
+                <h2 class="section-title">Новости</h2>
+                <div id="newsList">
+                    <div th:each="news : ${news}" class="card news-card">
+                        <div class="card-body">
+                            <div class="action-buttons" sec:authorize="hasRole('ADMIN')">
+                                <button class="btn btn-sm btn-primary" onclick="editNews(this)" 
+                                        th:data-id="${news.id}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteNews(this)" 
+                                        th:data-id="${news.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </div>
-                            <div class="mb-3">
-                                <label for="newsContent" class="form-label">Содержание</label>
-                                <textarea class="form-control" id="newsContent" rows="4" required></textarea>
+                            <h5 class="card-title" th:text="${news.title}">News Title</h5>
+                            <p class="card-text" th:text="${news.content}">News Content</p>
+                            
+                            <!-- Media files section -->
+                            <div th:if="${news.mediaFileName != null}" class="mt-3">
+                                <div class="media-grid">
+                                    <div th:each="mediaPath, mediaStat : ${news.mediaFilePaths}" class="media-item">
+                                        <!-- Image -->
+                                        <img th:if="${news.mediaFileTypes[mediaStat.index].startsWith('image/')}" 
+                                             th:src="${mediaPath}" 
+                                             class="img-fluid rounded" 
+                                             alt="News image">
+                                        
+                                        <!-- Video -->
+                                        <video th:if="${news.mediaFileTypes[mediaStat.index].startsWith('video/')}" 
+                                               class="img-fluid rounded" 
+                                               controls>
+                                            <source th:src="${mediaPath}" th:type="${news.mediaFileTypes[mediaStat.index]}">
+                                            Your browser does not support the video tag.
+                                        </video>
+                                        
+                                        <!-- Audio -->
+                                        <audio th:if="${news.mediaFileTypes[mediaStat.index].startsWith('audio/')}" 
+                                               class="w-100" 
+                                               controls>
+                                            <source th:src="${mediaPath}" th:type="${news.mediaFileTypes[mediaStat.index]}">
+                                            Your browser does not support the audio tag.
+                                        </audio>
+                                        
+                                        <!-- Document or other file -->
+                                        <div th:if="${!news.mediaFileTypes[mediaStat.index].startsWith('image/') && 
+                                                    !news.mediaFileTypes[mediaStat.index].startsWith('video/') && 
+                                                    !news.mediaFileTypes[mediaStat.index].startsWith('audio/')}" 
+                                             class="alert alert-info">
+                                            <a th:href="${mediaPath}" class="text-decoration-none" target="_blank">
+                                                <i class="fas fa-file"></i> Download file
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label for="newsMediaFile" class="form-label">Медиафайл</label>
-                                <input type="file" class="form-control" id="newsMediaFile" accept="image/*,video/*">
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <small class="text-muted" th:text="${#temporals.format(news.createdAt, 'dd.MM.yyyy HH:mm')}">Date</small>
                             </div>
-                            <button type="submit" class="btn btn-primary">Добавить</button>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Contacts Section -->
-        <div class="contact-section">
+        <div id="contacts-section" class="contact-section">
+            <h2 class="section-title">Контакты</h2>
             <div class="row">
-                <div class="col-md-8">
-                    <h2>Контакты</h2>
+                <div class="col-12">
                     <div id="contactsList">
                         <div th:each="contact : ${contacts}" class="card mb-3">
-                            <div class="action-buttons">
-                                <button class="btn btn-sm btn-primary" th:onclick="'editContact(' + ${contact.id} + ')'">✏️</button>
-                                <button class="btn btn-sm btn-danger" th:onclick="'deleteContact(' + ${contact.id} + ')'">🗑️</button>
+                            <div class="action-buttons" sec:authorize="hasRole('ADMIN')">
+                                <button class="btn btn-sm btn-primary" th:onclick="'editContact(' + ${contact.id} + ')'">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" th:onclick="'deleteContact(' + ${contact.id} + ')'">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </div>
                             <div class="card-body">
                                 <h5 th:text="${contact.title}"></h5>
-                                <p th:text="${contact.content}"></p>
-                                <small class="text-muted" th:text="${contact.type}"></small>
+                                <p th:utext="${contact.content}" style="white-space: pre-line;"></p>
+                                <small class="text-muted" th:switch="${contact.type}">
+                                    <span th:case="'PHONE'">Телефон</span>
+                                    <span th:case="'EMAIL'">Email</span>
+                                    <span th:case="'ADDRESS'">Адрес</span>
+                                    <span th:case="'SOCIAL_MEDIA'">Социальные сети</span>
+                                    <span th:case="'OTHER'">Другое</span>
+                                    <span th:case="*">[[${contact.type}]]</span>
+                                </small>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Add Contact Form -->
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h3>Добавить контакт</h3>
-                            <form id="contactForm">
-                                <div class="mb-3">
-                                    <label for="contactTitle" class="form-label">Название</label>
-                                    <input type="text" class="form-control" id="contactTitle" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="contactContent" class="form-label">Информация</label>
-                                    <textarea class="form-control" id="contactContent" rows="3" required></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="contactType" class="form-label">Тип</label>
-                                    <select class="form-control" id="contactType" required>
-                                        <option value="PHONE">Телефон</option>
-                                        <option value="EMAIL">Email</option>
-                                        <option value="ADDRESS">Адрес</option>
-                                        <option value="SOCIAL_MEDIA">Социальные сети</option>
-                                        <option value="OTHER">Другое</option>
-                                    </select>
-                                </div>
-                                <button type="submit" class="btn btn-primary">Добавить</button>
-                            </form>
-                        </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Toggle Button -->
+    <button class="settings-toggle" sec:authorize="hasRole('ADMIN')" onclick="toggleAdminPanel()">
+        <i class="fas fa-cog"></i>
+    </button>
+
+    <!-- Admin Controls -->
+    <div class="admin-controls" sec:authorize="hasRole('ADMIN')">
+        <div class="admin-panel">
+            <h3>Панель администратора</h3>
+            <div class="admin-actions">
+                <button class="admin-button" onclick="showAddNewsForm()">
+                    <i class="fas fa-plus"></i> Добавить новость
+                </button>
+                <button class="admin-button" onclick="showAddContactForm()">
+                    <i class="fas fa-plus"></i> Добавить контакт
+                </button>
+                <button class="admin-button" onclick="editAbout()">
+                    <i class="fas fa-edit"></i> Редактировать "О нас"
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div class="modal fade" id="adminPanelModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Панель администратора</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" onclick="showAddNewsForm()">
+                            <i class="fas fa-plus"></i> Добавить новость
+                        </button>
+                        <button class="btn btn-primary" onclick="showAddContactForm()">
+                            <i class="fas fa-plus"></i> Добавить контакт
+                        </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add News Modal -->
+    <div class="modal fade" id="addNewsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Добавить новость</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="newsForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="newsTitle" class="form-label">Заголовок</label>
+                            <input type="text" class="form-control" id="newsTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newsContent" class="form-label">Содержание</label>
+                            <textarea class="form-control" id="newsContent" rows="4" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newsMediaFiles" class="form-label">Фотографии</label>
+                            <input type="file" class="form-control" id="newsMediaFiles" accept=".png" multiple>
+                            <small class="text-muted">Можно выбрать несколько PNG файлов</small>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Добавить</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -162,14 +594,63 @@
                             <textarea class="form-control" id="editNewsContent" rows="4" required></textarea>
                         </div>
                         <div class="mb-3">
-                            <label for="editNewsMediaFile" class="form-label">Медиафайл</label>
-                            <input type="file" class="form-control" id="editNewsMediaFile" accept="image/*,video/*">
+                            <label for="editNewsMediaFiles" class="form-label">Фотографии</label>
+                            <input type="file" class="form-control" id="editNewsMediaFiles" accept=".png" multiple>
+                            <small class="text-muted">Можно выбрать несколько PNG файлов</small>
+                        </div>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-primary" onclick="saveNewsEdit()">Сохранить</button>
                         </div>
                     </form>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                    <button type="button" class="btn btn-primary" onclick="saveNewsEdit()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div class="modal fade image-modal" id="imagePreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-body">
+                    <img src="" class="modal-image" alt="Preview">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Contact Modal -->
+    <div class="modal fade" id="addContactModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Добавить контакт</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="contactForm">
+                        <div class="mb-3">
+                            <label for="contactTitle" class="form-label">Название</label>
+                            <input type="text" class="form-control" id="contactTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="contactContent" class="form-label">Информация</label>
+                            <textarea class="form-control" id="contactContent" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="contactType" class="form-label">Тип</label>
+                            <select class="form-control" id="contactType" required>
+                                <option value="PHONE">Телефон</option>
+                                <option value="EMAIL">Email</option>
+                                <option value="ADDRESS">Адрес</option>
+                                <option value="SOCIAL_MEDIA">Социальные сети</option>
+                                <option value="OTHER">Другое</option>
+                            </select>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Добавить</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -204,18 +685,68 @@
                                 <option value="OTHER">Другое</option>
                             </select>
                         </div>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-primary" onclick="saveContactEdit()">Сохранить</button>
+                        </div>
                     </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                    <button type="button" class="btn btn-primary" onclick="saveContactEdit()">Сохранить</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Edit About Modal -->
+    <div class="modal fade" id="editAboutModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Редактировать информацию о нас</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editAboutForm" onsubmit="saveAboutEdit(event)">
+                        <div class="mb-3">
+                            <label for="editAboutContent" class="form-label">Содержание</label>
+                            <textarea class="form-control" id="editAboutContent" rows="6" required></textarea>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Сохранить</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refresh Progress -->
+    <div id="refreshProgress" style="display: none; margin-top: 10px;">
+        <div class="progress">
+            <div id="refreshProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                 role="progressbar" style="width: 0%" 
+                 aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+        <small id="refreshProgressText" class="text-muted mt-1 d-block"></small>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Admin Panel Functions
+        function toggleAdminPanel() {
+            const adminControls = document.querySelector('.admin-controls');
+            adminControls.classList.toggle('visible');
+        }
+
+        function showAddNewsForm() {
+            const addNewsModal = new bootstrap.Modal(document.getElementById('addNewsModal'));
+            addNewsModal.show();
+        }
+
+        function showAddContactForm() {
+            const addContactModal = new bootstrap.Modal(document.getElementById('addContactModal'));
+            // Очищаем форму при открытии
+            document.getElementById('contactForm').reset();
+            addContactModal.show();
+        }
+
         // Add News
         document.getElementById('newsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -223,9 +754,9 @@
             formData.append('title', document.getElementById('newsTitle').value);
             formData.append('content', document.getElementById('newsContent').value);
             
-            const mediaFile = document.getElementById('newsMediaFile').files[0];
-            if (mediaFile) {
-                formData.append('mediaFile', mediaFile);
+            const mediaFiles = document.getElementById('newsMediaFiles').files;
+            for (let i = 0; i < mediaFiles.length; i++) {
+                formData.append('mediaFiles', mediaFiles[i]);
             }
             
             try {
@@ -235,10 +766,87 @@
                 });
                 
                 if (response.ok) {
+                    const addNewsModal = bootstrap.Modal.getInstance(document.getElementById('addNewsModal'));
+                    addNewsModal.hide();
+                    // Очищаем форму
+                    document.getElementById('newsForm').reset();
+                    // Перезагружаем страницу
                     location.reload();
                 }
             } catch (error) {
                 console.error('Error:', error);
+                alert('Ошибка при добавлении новости');
+            }
+        });
+
+        // Edit News
+        async function editNews(button) {
+            const id = button.getAttribute('data-id');
+            try {
+                const response = await fetch(`/news/${id}`);
+                const news = await response.json();
+                
+                document.getElementById('editNewsId').value = news.id;
+                document.getElementById('editNewsTitle').value = news.title;
+                document.getElementById('editNewsContent').value = news.content;
+                
+                // Очищаем поле выбора файлов
+                document.getElementById('editNewsMediaFiles').value = '';
+                
+                const editNewsModal = new bootstrap.Modal(document.getElementById('editNewsModal'));
+                editNewsModal.show();
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Ошибка при загрузке новости');
+            }
+        }
+
+        async function saveNewsEdit() {
+            const id = document.getElementById('editNewsId').value;
+            const formData = new FormData();
+            formData.append('title', document.getElementById('editNewsTitle').value);
+            formData.append('content', document.getElementById('editNewsContent').value);
+            
+            const mediaFiles = document.getElementById('editNewsMediaFiles').files;
+            for (let i = 0; i < mediaFiles.length; i++) {
+                formData.append('mediaFiles', mediaFiles[i]);
+            }
+            
+            try {
+                const response = await fetch(`/news/${id}`, {
+                    method: 'PUT',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const editNewsModal = bootstrap.Modal.getInstance(document.getElementById('editNewsModal'));
+                    editNewsModal.hide();
+                    location.reload();
+                } else {
+                    throw new Error('Failed to update news');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Ошибка при сохранении новости');
+            }
+        }
+
+        // Image Preview
+        document.addEventListener('click', function(e) {
+            const target = e.target;
+            if (target.tagName === 'IMG' && target.closest('.media-container')) {
+                const modal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+                const modalImg = document.querySelector('.modal-image');
+                modalImg.src = target.src;
+                modal.show();
+            }
+        });
+
+        // Add hover effect to images
+        document.addEventListener('mouseover', function(e) {
+            const target = e.target;
+            if (target.tagName === 'IMG' && target.closest('.media-container')) {
+                target.style.cursor = 'pointer';
             }
         });
 
@@ -261,6 +869,11 @@
                 });
                 
                 if (response.ok) {
+                    const addContactModal = bootstrap.Modal.getInstance(document.getElementById('addContactModal'));
+                    addContactModal.hide();
+                    // Очищаем форму
+                    document.getElementById('contactForm').reset();
+                    // Перезагружаем страницу
                     location.reload();
                 }
             } catch (error) {
@@ -268,58 +881,22 @@
             }
         });
 
-        // Edit News
-        function editNews(id) {
-            const newsCard = document.querySelector(`[onclick="editNews(${id})"]`).closest('.card');
-            const title = newsCard.querySelector('.card-title').textContent;
-            const content = newsCard.querySelector('.card-text').textContent;
-
-            document.getElementById('editNewsId').value = id;
-            document.getElementById('editNewsTitle').value = title;
-            document.getElementById('editNewsContent').value = content;
-            document.getElementById('editNewsMediaFile').value = ''; // Reset file input
-
-            new bootstrap.Modal(document.getElementById('editNewsModal')).show();
-        }
-
-        async function saveNewsEdit() {
-            const id = document.getElementById('editNewsId').value;
-            const formData = new FormData();
-            formData.append('title', document.getElementById('editNewsTitle').value);
-            formData.append('content', document.getElementById('editNewsContent').value);
-            
-            const mediaFile = document.getElementById('editNewsMediaFile').files[0];
-            if (mediaFile) {
-                formData.append('mediaFile', mediaFile);
-            }
-
+        // Edit Contact
+        async function editContact(id) {
             try {
-                const response = await fetch(`/news/edit/${id}`, {
-                    method: 'PUT',
-                    body: formData
-                });
-
-                if (response.ok) {
-                    location.reload();
-                }
+                const response = await fetch(`/contacts/${id}`);
+                const contact = await response.json();
+                
+                document.getElementById('editContactId').value = contact.id;
+                document.getElementById('editContactTitle').value = contact.title;
+                document.getElementById('editContactContent').value = contact.content;
+                document.getElementById('editContactType').value = contact.type;
+                
+                const editContactModal = new bootstrap.Modal(document.getElementById('editContactModal'));
+                editContactModal.show();
             } catch (error) {
                 console.error('Error:', error);
             }
-        }
-
-        // Edit Contact
-        function editContact(id) {
-            const contactCard = document.querySelector(`[onclick="editContact(${id})"]`).closest('.card');
-            const title = contactCard.querySelector('h5').textContent;
-            const content = contactCard.querySelector('p').textContent;
-            const type = contactCard.querySelector('small').textContent;
-
-            document.getElementById('editContactId').value = id;
-            document.getElementById('editContactTitle').value = title;
-            document.getElementById('editContactContent').value = content;
-            document.getElementById('editContactType').value = type;
-
-            new bootstrap.Modal(document.getElementById('editContactModal')).show();
         }
 
         async function saveContactEdit() {
@@ -329,16 +906,16 @@
                 content: document.getElementById('editContactContent').value,
                 type: document.getElementById('editContactType').value
             };
-
+            
             try {
-                const response = await fetch(`/contacts/edit/${id}`, {
+                const response = await fetch(`/contacts/${id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(contact)
                 });
-
+                
                 if (response.ok) {
                     location.reload();
                 }
@@ -348,18 +925,23 @@
         }
 
         // Delete News
-        async function deleteNews(id) {
+        async function deleteNews(button) {
+            const id = button.getAttribute('data-id');
             if (confirm('Вы уверены, что хотите удалить эту новость?')) {
                 try {
-                    const response = await fetch(`/news/delete/${id}`, {
+                    const response = await fetch(`/news/${id}`, {
                         method: 'DELETE'
                     });
-
+                    
                     if (response.ok) {
-                        location.reload();
+                        const newsCard = button.closest('.news-card');
+                        newsCard.remove();
+                    } else {
+                        throw new Error('Failed to delete news');
                     }
                 } catch (error) {
                     console.error('Error:', error);
+                    alert('Ошибка при удалении новости');
                 }
             }
         }
@@ -368,10 +950,10 @@
         async function deleteContact(id) {
             if (confirm('Вы уверены, что хотите удалить этот контакт?')) {
                 try {
-                    const response = await fetch(`/contacts/delete/${id}`, {
+                    const response = await fetch(`/contacts/${id}`, {
                         method: 'DELETE'
                     });
-
+                    
                     if (response.ok) {
                         location.reload();
                     }
@@ -381,18 +963,70 @@
             }
         }
 
-        // Refresh News from VK
-        async function refreshNews() {
+        // About Us Functions
+        function editAbout() {
+            const aboutContent = document.getElementById('aboutContent').textContent;
+            document.getElementById('editAboutContent').value = aboutContent;
+            const editAboutModal = new bootstrap.Modal(document.getElementById('editAboutModal'));
+            editAboutModal.show();
+        }
+
+        async function saveAboutEdit(event) {
+            event.preventDefault();
+            const about = {
+                content: document.getElementById('editAboutContent').value
+            };
+            
             try {
-                const response = await fetch('/news/refresh');
-                const result = await response.text();
-                alert(result);
-                location.reload();
+                const response = await fetch('/about', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(about)
+                });
+                
+                if (response.ok) {
+                    const editAboutModal = bootstrap.Modal.getInstance(document.getElementById('editAboutModal'));
+                    editAboutModal.hide();
+                    location.reload();
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to update about section');
+                }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error refreshing news');
+                alert('Ошибка при сохранении информации: ' + error.message);
             }
         }
+
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+
+    <!-- VK Widget API -->
+    <script type="text/javascript" src="https://vk.com/js/api/openapi.js?169"></script>
+    <script type="text/javascript">
+        VK.Widgets.Group("vk_groups", {
+            mode: 2,
+            width: "800",
+            height: "600",
+            color1: 'FFFFFF',
+            color2: '2B587A',
+            color3: '5B7FA6'
+        }, 228496920);
     </script>
 </body>
 </html> 

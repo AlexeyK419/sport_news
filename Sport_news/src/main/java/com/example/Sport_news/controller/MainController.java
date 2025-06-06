@@ -2,10 +2,13 @@ package com.example.Sport_news.controller;
 
 import com.example.Sport_news.model.Contact;
 import com.example.Sport_news.model.News;
+import com.example.Sport_news.model.About;
 import com.example.Sport_news.repository.ContactRepository;
 import com.example.Sport_news.repository.NewsRepository;
+import com.example.Sport_news.repository.AboutRepository;
 import com.example.Sport_news.service.FileStorageService;
-import com.example.Sport_news.service.VkNewsService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -23,9 +26,13 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Controller
 public class MainController {
+
+    private static final Logger logger = LoggerFactory.getLogger(MainController.class);
 
     @Autowired
     private NewsRepository newsRepository;
@@ -34,7 +41,7 @@ public class MainController {
     private ContactRepository contactRepository;
 
     @Autowired
-    private VkNewsService vkNewsService;
+    private AboutRepository aboutRepository;
 
     @Autowired
     private FileStorageService fileStorageService;
@@ -46,57 +53,119 @@ public class MainController {
     public String index(Model model) {
         model.addAttribute("news", newsRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")));
         model.addAttribute("contacts", contactRepository.findAll());
+        model.addAttribute("about", aboutRepository.findById(1L).orElse(new About()));
         return "index";
+    }
+
+    // News endpoints
+    @GetMapping("/news/{id}")
+    @ResponseBody
+    public News getNews(@PathVariable Long id) {
+        return newsRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("News not found"));
     }
 
     @PostMapping("/news/add")
     @ResponseBody
     public News addNews(@RequestParam("title") String title,
                        @RequestParam("content") String content,
-                       @RequestParam(value = "mediaFile", required = false) MultipartFile mediaFile) {
+                       @RequestParam(value = "mediaFiles", required = false) MultipartFile[] mediaFiles) {
         News news = new News();
         news.setTitle(title);
         news.setContent(content);
         news.setSourceType(News.NewsSource.MANUAL);
+        news.setCreatedAt(LocalDateTime.now());
 
-        if (mediaFile != null && !mediaFile.isEmpty()) {
-            try {
-                String filename = fileStorageService.storeFile(mediaFile);
-                news.setMediaFileName(filename);
-                news.setMediaFileType(mediaFile.getContentType());
-                news.setMediaFilePath("/files/" + filename);
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to store file", e);
+        if (mediaFiles != null && mediaFiles.length > 0) {
+            StringBuilder mediaFileNames = new StringBuilder();
+            StringBuilder mediaFileTypes = new StringBuilder();
+            StringBuilder mediaFilePaths = new StringBuilder();
+
+            for (int i = 0; i < mediaFiles.length; i++) {
+                MultipartFile mediaFile = mediaFiles[i];
+                if (mediaFile != null && !mediaFile.isEmpty()) {
+                    // Проверяем, что файл является PNG
+                    if (!mediaFile.getContentType().equals("image/png")) {
+                        throw new RuntimeException("Только PNG файлы разрешены");
+                    }
+                    try {
+                        String filename = fileStorageService.storeFile(mediaFile);
+                        if (i > 0) {
+                            mediaFileNames.append(",");
+                            mediaFileTypes.append(",");
+                            mediaFilePaths.append(",");
+                        }
+                        mediaFileNames.append(filename);
+                        mediaFileTypes.append(mediaFile.getContentType());
+                        mediaFilePaths.append("/files/" + filename);
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to store file", e);
+                    }
+                }
+            }
+
+            if (mediaFileNames.length() > 0) {
+                news.setMediaFileName(mediaFileNames.toString());
+                news.setMediaFileType(mediaFileTypes.toString());
+                news.setMediaFilePath(mediaFilePaths.toString());
             }
         }
 
         return newsRepository.save(news);
     }
 
-    @PutMapping("/news/edit/{id}")
+    @PutMapping("/news/{id}")
     @ResponseBody
     public News editNews(@PathVariable Long id,
                         @RequestParam("title") String title,
                         @RequestParam("content") String content,
-                        @RequestParam(value = "mediaFile", required = false) MultipartFile mediaFile) {
+                        @RequestParam(value = "mediaFiles", required = false) MultipartFile[] mediaFiles) {
         News existingNews = newsRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("News not found"));
         
         existingNews.setTitle(title);
         existingNews.setContent(content);
 
-        if (mediaFile != null && !mediaFile.isEmpty()) {
+        if (mediaFiles != null && mediaFiles.length > 0) {
             try {
-                // Delete old file if exists
+                // Delete old media files if they exist
                 if (existingNews.getMediaFileName() != null) {
-                    fileStorageService.deleteFile(existingNews.getMediaFileName());
+                    String[] oldFiles = existingNews.getMediaFileName().split(",");
+                    for (String oldFile : oldFiles) {
+                        if (oldFile != null && !oldFile.isEmpty()) {
+                            fileStorageService.deleteFile(oldFile.trim());
+                        }
+                    }
                 }
                 
-                // Store new file
-                String filename = fileStorageService.storeFile(mediaFile);
-                existingNews.setMediaFileName(filename);
-                existingNews.setMediaFileType(mediaFile.getContentType());
-                existingNews.setMediaFilePath("/files/" + filename);
+                StringBuilder mediaFileNames = new StringBuilder();
+                StringBuilder mediaFileTypes = new StringBuilder();
+                StringBuilder mediaFilePaths = new StringBuilder();
+
+                for (int i = 0; i < mediaFiles.length; i++) {
+                    MultipartFile mediaFile = mediaFiles[i];
+                    if (mediaFile != null && !mediaFile.isEmpty()) {
+                        // Проверяем, что файл является PNG
+                        if (!mediaFile.getContentType().equals("image/png")) {
+                            throw new RuntimeException("Только PNG файлы разрешены");
+                        }
+                        String filename = fileStorageService.storeFile(mediaFile);
+                        if (i > 0) {
+                            mediaFileNames.append(",");
+                            mediaFileTypes.append(",");
+                            mediaFilePaths.append(",");
+                        }
+                        mediaFileNames.append(filename);
+                        mediaFileTypes.append(mediaFile.getContentType());
+                        mediaFilePaths.append("/files/" + filename);
+                    }
+                }
+
+                if (mediaFileNames.length() > 0) {
+                    existingNews.setMediaFileName(mediaFileNames.toString());
+                    existingNews.setMediaFileType(mediaFileTypes.toString());
+                    existingNews.setMediaFilePath(mediaFilePaths.toString());
+                }
             } catch (IOException e) {
                 throw new RuntimeException("Failed to store file", e);
             }
@@ -105,18 +174,16 @@ public class MainController {
         return newsRepository.save(existingNews);
     }
 
-    @DeleteMapping("/news/delete/{id}")
+    @DeleteMapping("/news/{id}")
     @ResponseBody
     public String deleteNews(@PathVariable Long id) {
         News news = newsRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("News not found"));
         
-        // Delete associated file if exists
         if (news.getMediaFileName() != null) {
             try {
                 fileStorageService.deleteFile(news.getMediaFileName());
             } catch (IOException e) {
-                // Log error but continue with news deletion
                 e.printStackTrace();
             }
         }
@@ -125,6 +192,54 @@ public class MainController {
         return "News deleted successfully";
     }
 
+    // Contact endpoints
+    @GetMapping("/contacts/{id}")
+    @ResponseBody
+    public Contact getContact(@PathVariable Long id) {
+        return contactRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Contact not found"));
+    }
+
+    @PostMapping("/contacts/add")
+    @ResponseBody
+    public Contact addContact(@RequestBody Contact contact) {
+        return contactRepository.save(contact);
+    }
+
+    @PutMapping("/contacts/{id}")
+    @ResponseBody
+    public Contact editContact(@PathVariable Long id, @RequestBody Contact contact) {
+        Contact existingContact = contactRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Contact not found"));
+        existingContact.setTitle(contact.getTitle());
+        existingContact.setContent(contact.getContent());
+        existingContact.setType(contact.getType());
+        return contactRepository.save(existingContact);
+    }
+
+    @DeleteMapping("/contacts/{id}")
+    @ResponseBody
+    public String deleteContact(@PathVariable Long id) {
+        contactRepository.deleteById(id);
+        return "Contact deleted successfully";
+    }
+
+    // About endpoints
+    @GetMapping("/about")
+    @ResponseBody
+    public About getAbout() {
+        return aboutRepository.findById(1L).orElse(new About());
+    }
+
+    @PutMapping("/about")
+    @ResponseBody
+    public About updateAbout(@RequestBody About about) {
+        About existingAbout = aboutRepository.findById(1L).orElse(new About());
+        existingAbout.setContent(about.getContent());
+        return aboutRepository.save(existingAbout);
+    }
+
+    // File serving endpoint
     @GetMapping("/files/{filename:.+}")
     @ResponseBody
     public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
@@ -142,41 +257,6 @@ public class MainController {
             }
         } catch (MalformedURLException e) {
             return ResponseEntity.badRequest().build();
-        }
-    }
-
-    @PostMapping("/contacts/add")
-    @ResponseBody
-    public Contact addContact(@RequestBody Contact contact) {
-        return contactRepository.save(contact);
-    }
-
-    @PutMapping("/contacts/edit/{id}")
-    @ResponseBody
-    public Contact editContact(@PathVariable Long id, @RequestBody Contact contact) {
-        Contact existingContact = contactRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Contact not found"));
-        existingContact.setTitle(contact.getTitle());
-        existingContact.setContent(contact.getContent());
-        existingContact.setType(contact.getType());
-        return contactRepository.save(existingContact);
-    }
-
-    @DeleteMapping("/contacts/delete/{id}")
-    @ResponseBody
-    public String deleteContact(@PathVariable Long id) {
-        contactRepository.deleteById(id);
-        return "Contact deleted successfully";
-    }
-
-    @GetMapping("/news/refresh")
-    @ResponseBody
-    public String refreshNews() {
-        try {
-            vkNewsService.fetchNews().forEach(newsRepository::save);
-            return "News refreshed successfully";
-        } catch (Exception e) {
-            return "Error refreshing news: " + e.getMessage();
         }
     }
 } 
